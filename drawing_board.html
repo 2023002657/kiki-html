@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>简易像素画板 | 像素格子绘画板</title>
+    <style>
+        * {
+            user-select: none; /* 避免绘制时拖动选中文本/格子，提升体验 */
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(145deg, #1a2a3a 0%, #0f1a24 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, 'Roboto', monospace;
+            padding: 20px;
+            margin: 0;
+        }
+
+        /* 主卡片 */
+        .pixel-card {
+            background: rgba(30, 40, 50, 0.75);
+            backdrop-filter: blur(2px);
+            border-radius: 2rem;
+            padding: 1.5rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* 画板容器 */
+        .canvas-container {
+            background: #2e3b3e;
+            padding: 12px;
+            border-radius: 28px;
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.4), 0 5px 12px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        /* 像素网格区域 - 动态 grid */
+        .pixel-grid {
+            display: grid;
+            background-color: #1e2a2e;
+            gap: 1px;
+            border: 2px solid #3a4a4f;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 0 0 1px #0f1215;
+        }
+
+        /* 单个像素格 */
+        .pixel {
+            background-color: #fcf9ea;
+            aspect-ratio: 1 / 1;  /* 保持正方形 */
+            width: 100%;
+            transition: all 0.04s ease;
+            cursor: pointer;
+            box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+        }
+
+        .pixel:hover {
+            filter: brightness(0.92);
+            transform: scale(0.98);
+        }
+
+        /* 工具栏 */
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        /* 调色盘区域 */
+        .color-picker-area {
+            background: #1f2c32;
+            padding: 8px 15px;
+            border-radius: 60px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            backdrop-filter: blur(4px);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .color-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #d9e3e8;
+            letter-spacing: 1px;
+            background: #00000040;
+            padding: 4px 10px;
+            border-radius: 30px;
+        }
+
+        #colorPicker {
+            width: 52px;
+            height: 52px;
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            background: #ff6b6b;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: 0.1s ease;
+        }
+
+        #colorPicker:hover {
+            transform: scale(1.05);
+        }
+
+        /* 按钮风格 */
+        button {
+            background: #2e4a5c;
+            border: none;
+            font-weight: bold;
+            padding: 10px 24px;
+            border-radius: 48px;
+            font-size: 1rem;
+            font-family: inherit;
+            color: white;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        button i {
+            font-style: normal;
+            font-weight: 900;
+            font-size: 1.1rem;
+        }
+
+        button:hover {
+            background: #3f6b82;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(2px);
+        }
+
+        .clear-btn {
+            background: #933e3e;
+        }
+        .clear-btn:hover {
+            background: #b34e4e;
+        }
+
+        .save-btn {
+            background: #2a6b4e;
+        }
+        .save-btn:hover {
+            background: #3e8d68;
+        }
+
+        /* 尺寸控制 & 信息 */
+        .size-control {
+            background: #1f2c32c9;
+            border-radius: 48px;
+            padding: 4px 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .size-control span {
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        #gridSizeInput {
+            width: 70px;
+            background: #f0f3f5;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 12px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1rem;
+            font-family: monospace;
+        }
+
+        .info-note {
+            font-size: 0.7rem;
+            color: #cbdbe2;
+            text-align: center;
+            margin-top: 16px;
+            background: #00000030;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 4px 12px;
+            border-radius: 40px;
+        }
+
+        @media (max-width: 560px) {
+            .pixel-card {
+                padding: 1rem;
+            }
+            button {
+                padding: 6px 16px;
+                font-size: 0.8rem;
+            }
+            .color-picker-area {
+                padding: 4px 12px;
+            }
+            #colorPicker {
+                width: 42px;
+                height: 42px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="pixel-card">
+    <div class="canvas-container">
+        <!-- 动态像素网格 -->
+        <div class="pixel-grid" id="pixelGrid"></div>
+    </div>
+
+    <div class="toolbar">
+        <div class="color-picker-area">
+            <span class="color-label">🎨 笔刷</span>
+            <input type="color" id="colorPicker" value="#ff3b6f">
+        </div>
+
+        <div class="size-control">
+            <span>🔲 网格</span>
+            <input type="number" id="gridSizeInput" min="4" max="40" value="20" step="1">
+            <span> x </span>
+        </div>
+
+        <button class="clear-btn" id="clearBtn">🗑️ 清空画板</button>
+        <button class="save-btn" id="saveBtn">📸 保存为PNG</button>
+    </div>
+    <div class="info-note">
+        ✨ 点击任意格子变色 | 使用取色器自由切换颜色
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- DOM 元素 ----------
+        const gridContainer = document.getElementById('pixelGrid');
+        const colorPicker = document.getElementById('colorPicker');
+        const clearBtn = document.getElementById('clearBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const gridSizeInput = document.getElementById('gridSizeInput');
+
+        // ---------- 状态变量 ----------
+        let currentColor = colorPicker.value;   // 当前选中的颜色
+        let gridSize = 20;                      // 默认 20x20 网格
+        let pixelElements = [];                 // 存储二维DOM元素引用 (可选便于性能，但也可遍历query)
+        // 实际绘画数据存储: 二维数组，记录每个格子的颜色（十六进制字符串）
+        let pixelColors = [];
+
+        // ---------- 辅助函数 ----------
+        // 初始化/重置颜色数组 (用默认背景色)
+        function initColorsArray(size, defaultColor = '#fcf9ea') {
+            const arr = new Array(size);
+            for (let i = 0; i < size; i++) {
+                arr[i] = new Array(size);
+                for (let j = 0; j < size; j++) {
+                    arr[i][j] = defaultColor;
+                }
+            }
+            return arr;
+        }
+
+        // 根据 pixelColors 数组完全刷新网格 UI (重建所有格子样式，但保留DOM结构？为了性能与简洁，采用重新构建网格)
+        // 但注意: 重新构建时，会丢失已有的事件监听，所以我们统一用 renderGrid 来根据当前pixelColors生成全新网格。
+        // 同时维护 pixelElements 二维数组引用。
+        function renderGrid() {
+            if (!gridContainer) return;
+            const size = gridSize;
+            // 设置grid模板列: 重复 size 次, 1fr
+            gridContainer.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            gridContainer.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+            
+            // 清空容器
+            gridContainer.innerHTML = '';
+            // 重新构建二维元素数组
+            const newPixelElements = [];
+            
+            for (let row = 0; row < size; row++) {
+                const rowElements = [];
+                for (let col = 0; col < size; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'pixel';
+                    // 从 pixelColors 中读取颜色
+                    const bgColor = pixelColors[row]?.[col] || '#fcf9ea';
+                    cell.style.backgroundColor = bgColor;
+                    // 添加点击事件 (利用闭包传入坐标)
+                    cell.addEventListener('click', (function(r, c) {
+                        return function() {
+                            // 切换格子颜色为当前选中的颜色
+                            setPixelColor(r, c, currentColor);
+                        };
+                    })(row, col));
+                    
+                    gridContainer.appendChild(cell);
+                    rowElements.push(cell);
+                }
+                newPixelElements.push(rowElements);
+            }
+            pixelElements = newPixelElements;
+        }
+
+        // 单独设置某个格子的颜色 (更新数据模型 + UI)
+        function setPixelColor(row, col, color) {
+            if (row < 0 || row >= gridSize || col < 0 || col >= gridSize) return;
+            // 更新数据源
+            pixelColors[row][col] = color;
+            // 更新UI对应格子的背景
+            if (pixelElements[row] && pixelElements[row][col]) {
+                pixelElements[row][col].style.backgroundColor = color;
+            }
+        }
+
+        // 清空画板: 将所有格子重置为默认底色 (#fcf9ea)
+        function clearCanvas() {
+            const defaultColor = '#fcf9ea';
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    pixelColors[i][j] = defaultColor;
+                    if (pixelElements[i] && pixelElements[i][j]) {
+                        pixelElements[i][j].style.backgroundColor = defaultColor;
+                    }
+                }
+            }
+        }
+
+        // 改变网格尺寸 (重新初始化画板，保留当前选中的颜色，但重置所有颜色为默认底色)
+        function resizeGrid(newSize) {
+            // 限制范围 4~40
+            let clamped = Math.min(40, Math.max(4, newSize));
+            if (isNaN(clamped)) clamped = 20;
+            gridSize = clamped;
+            // 更新 input 显示值 (防止输入超出范围时显示不正确)
+            gridSizeInput.value = gridSize;
+            
+            // 重新初始化颜色数组 (默认背景)
+            pixelColors = initColorsArray(gridSize, '#fcf9ea');
+            // 重新渲染整个网格
+            renderGrid();
+        }
+
+        // 监听颜色选择器的变化
+        function bindColorPicker() {
+            colorPicker.addEventListener('input', (e) => {
+                currentColor = e.target.value;
+            });
+            // 额外确保初始同步
+            currentColor = colorPicker.value;
+        }
+
+        // 保存画板为 PNG 图片 (使用 Canvas API)
+        async function saveAsPNG() {
+            // 步骤: 创建一个离屏canvas，尺寸基于网格像素格子大小。每个格子可设为固定像素尺寸（例如30px）
+            // 为保持高清且方便，我们根据网格数量 * 每个格子渲染尺寸(如28px) 设定canvas。
+            // 考虑到画板显示的实际像素格子视觉尺寸可能不固定，但保存图片建议每个格子至少20px以上，这里设定每个格子30px 保证清晰
+            const cellSize = 32;          // 每个像素块导出为32x32px, 图片较大但清晰
+            const width = gridSize * cellSize;
+            const height = gridSize * cellSize;
+            
+            // 创建canvas对象
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+                alert('无法创建画布上下文，保存失败');
+                return;
+            }
+            
+            // 根据 pixelColors 数组绘制每个格子
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    const color = pixelColors[row][col];
+                    ctx.fillStyle = color;
+                    ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                    // 可选: 添加细网格线使像素感更强 (轻微线框)
+                    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                }
+            }
+            
+            // 转换为PNG下载
+            try {
+                // 创建下载链接
+                const link = document.createElement('a');
+                const timestamp = new Date().toISOString().slice(0,19).replace(/:/g, '-');
+                link.download = `pixel-art-${timestamp}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch (err) {
+                console.error('保存失败:', err);
+                alert('生成图片失败，可尝试刷新后重试');
+            }
+        }
+
+        // ----- 功能增强：支持拖拽绘制（可选但提升体验）-----
+        // 实现鼠标按下 + 移动 连续绘画（简易笔刷效果）
+        let isDrawing = false;
+        
+        function setupDrawingEvents() {
+            // 全局监听鼠标抬起，取消绘画状态
+            document.addEventListener('mouseup', () => {
+                isDrawing = false;
+            });
+            
+            // 在网格上使用事件委托或针对每个格子(render时动态绑定，由于render会重建dom，需要每次重新绑定drag事件)
+            // 技巧: 给gridContainer 添加事件监听利用事件委托处理 mousemove 和 mousedown，同时避免性能问题。
+            // 针对点击和拖拽，我们需要在mouseenter时判断左键按下状态。
+            gridContainer.addEventListener('mousedown', (e) => {
+                // 确保点击目标是像素格子
+                const target = e.target;
+                if (target && target.classList && target.classList.contains('pixel')) {
+                    isDrawing = true;
+                    // 同时处理点击更改颜色（已经单独监听，但为了防止重复，可手动调用也可; 但点击事件已经存在，单独click也会触发变色，可以避免重复逻辑；但拖拽时click不触发，我们利用mouseenter机制）
+                    // 这里mousedown时也要修改当前格子颜色（模拟单击即画）
+                    const rect = target.getBoundingClientRect();
+                    // 为了获取行列，使用自定义索引？最好根据pixelElements查找
+                    const rowCol = findRowColFromElement(target);
+                    if (rowCol) {
+                        setPixelColor(rowCol.row, rowCol.col, currentColor);
+                    }
+                    e.preventDefault();
+                }
+            });
+            
+            // 使用 mouseover 事件委托实现拖拽绘制（当鼠标移动且处于按下状态）
+            gridContainer.addEventListener('mouseover', (e) => {
+                if (!isDrawing) return;
+                const target = e.target;
+                if (target && target.classList && target.classList.contains('pixel')) {
+                    const rowCol = findRowColFromElement(target);
+                    if (rowCol) {
+                        setPixelColor(rowCol.row, rowCol.col, currentColor);
+                    }
+                }
+            });
+            
+            // 防止全局鼠标移动导致意外，确保在画板外释放drawing标志
+            window.addEventListener('mouseup', () => {
+                isDrawing = false;
+            });
+        }
+        
+        // 工具函数: 通过DOM元素获取其在pixelElements中的行列
+        function findRowColFromElement(element) {
+            if (!element) return null;
+            for (let i = 0; i < pixelElements.length; i++) {
+                for (let j = 0; j < pixelElements[i].length; j++) {
+                    if (pixelElements[i][j] === element) {
+                        return { row: i, col: j };
+                    }
+                }
+            }
+            return null;
+        }
+        
+        // 当网格重建后，由于pixelElements重新生成，事件委托仍然有效，但不用重新绑定mouseover/mousedown，因为容器监听一直存在。
+        // 但是注意重置画板或者改变尺寸时，原pixelElements引用变化，但查找函数会根据最新的pixelElements进行查找。完美。
+        
+        // 针对触摸屏移动端简单支持（触屏拖动绘画基础)
+        function setupTouchEvents() {
+            gridContainer.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (target && target.classList && target.classList.contains('pixel')) {
+                    isDrawing = true;
+                    const rowCol = findRowColFromElement(target);
+                    if (rowCol) setPixelColor(rowCol.row, rowCol.col, currentColor);
+                }
+            });
+            gridContainer.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (!isDrawing) return;
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (target && target.classList && target.classList.contains('pixel')) {
+                    const rowCol = findRowColFromElement(target);
+                    if (rowCol) setPixelColor(rowCol.row, rowCol.col, currentColor);
+                }
+            });
+            gridContainer.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                isDrawing = false;
+            });
+            document.addEventListener('touchcancel', () => { isDrawing = false; });
+        }
+        
+        // ----- 初始化与事件绑定-----
+        function init() {
+            // 设置初始gridSize (默认20)
+            gridSize = 20;
+            gridSizeInput.value = 20;
+            // 初始化颜色数组
+            pixelColors = initColorsArray(gridSize, '#fcf9ea');
+            // 渲染网格
+            renderGrid();
+            // 颜色选择器绑定
+            bindColorPicker();
+            // 清空按钮
+            clearBtn.addEventListener('click', () => {
+                clearCanvas();
+            });
+            // 保存按钮
+            saveBtn.addEventListener('click', () => {
+                saveAsPNG();
+            });
+            // 改变网格尺寸逻辑
+            gridSizeInput.addEventListener('change', (e) => {
+                let newSize = parseInt(e.target.value, 10);
+                if (isNaN(newSize)) newSize = 20;
+                newSize = Math.min(40, Math.max(4, newSize));
+                resizeGrid(newSize);
+            });
+            // 添加绘图辅助 (拖拽绘画)
+            setupDrawingEvents();
+            setupTouchEvents();   // 移动端触屏支持
+        }
+        
+        // 启动应用
+        init();
+    })();
+</script>
+</body>
+</html>
